@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Free SEO & Traffic Analyzer Tool</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f8f9fa;
+      color: #333;
+      padding: 20px;
+      max-width: 850px;
+      margin: auto;
+    }
+    h1 {
+      text-align: center;
+      color: #0056b3;
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      font-size: 16px;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 6px;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    #results {
+      background: white;
+      padding: 20px;
+      margin-top: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .score {
+      font-size: 22px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    .good { color: green; }
+    .medium { color: orange; }
+    .bad { color: red; }
+    .small { font-size: 14px; color: #666; }
+  </style>
+</head>
+<body>
+  <h1>🌐 Free SEO & Traffic Analyzer</h1>
+
+  <label for="url">Enter Website URL:</label>
+  <input type="text" id="url" placeholder="https://example.com">
+
+  <label for="keyword">Enter Keyword (optional):</label>
+  <input type="text" id="keyword" placeholder="SEO keyword...">
+
+  <button onclick="analyzeSite()">Analyze Website</button>
+
+  <div id="results"></div>
+
+  <script>
+    async function analyzeSite() {
+      const url = document.getElementById('url').value.trim();
+      const keyword = document.getElementById('keyword').value.trim();
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = "<p>⏳ Analyzing... please wait.</p>";
+
+      if (!url.startsWith('http')) {
+        resultsDiv.innerHTML = "<p style='color:red;'>Please enter a valid URL (with http or https).</p>";
+        return;
+      }
+
+      try {
+        // 1️⃣ Fetch SEO and performance data (Google PageSpeed API)
+        const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&category=SEO&category=PERFORMANCE`;
+        const res = await fetch(apiUrl);
+        const data = await res.json();
+
+        const lighthouse = data.lighthouseResult?.categories || {};
+        const seoScore = Math.round((lighthouse.SEO?.score || 0) * 100);
+        const perfScore = Math.round((lighthouse.performance?.score || 0) * 100);
+
+        let seoClass = seoScore >= 80 ? 'good' : seoScore >= 50 ? 'medium' : 'bad';
+        let perfClass = perfScore >= 80 ? 'good' : perfScore >= 50 ? 'medium' : 'bad';
+
+        // 2️⃣ Fetch basic traffic estimate (using openrank data API)
+        const domain = url.replace(/^https?:\/\//, '').split('/')[0];
+        let trafficRank = "Unknown";
+        try {
+          const trafficRes = await fetch(`https://api.openrank.io/domain/${domain}`);
+          const tData = await trafficRes.json();
+          trafficRank = tData.globalRank ? `#${tData.globalRank.toLocaleString()}` : "N/A";
+        } catch {
+          trafficRank = "Unavailable";
+        }
+
+        // 3️⃣ Keyword analysis suggestion
+        let keywordTip = '';
+        if (keyword) {
+          keywordTip = `
+            <h3>🔍 Keyword Analysis</h3>
+            <p>Your keyword "<b>${keyword}</b>" should appear in:</p>
+            <ul>
+              <li>Page title</li>
+              <li>Meta description</li>
+              <li>Headings (H1/H2)</li>
+              <li>First paragraph of content</li>
+            </ul>
+          `;
+        }
+
+        // 4️⃣ Display results
+        resultsDiv.innerHTML = `
+          <div class="score ${perfClass}">⚡ Performance Score: ${perfScore}/100</div>
+          <div class="score ${seoClass}">📈 SEO Score: ${seoScore}/100</div>
+          <div><b>🌍 Traffic Rank:</b> ${trafficRank}</div>
+          ${keywordTip}
+          <h3>🛠️ Quick SEO Tips</h3>
+          <ul>
+            <li>Improve page loading speed</li>
+            <li>Use mobile-friendly design</li>
+            <li>Optimize titles & meta tags</li>
+            <li>Add alt text to images</li>
+            <li>Use HTTPS for better trust</li>
+          </ul>
+          <button onclick="downloadPDF('${url}', ${seoScore}, ${perfScore}, '${trafficRank}', '${keyword || 'N/A'}')">📄 Download SEO Report (PDF)</button>
+          <p class="small">✅ Powered by Google PageSpeed Insights + OpenRank APIs</p>
+        `;
+      } catch (error) {
+        console.error(error);
+        resultsDiv.innerHTML = "<p style='color:red;'>❌ Error analyzing the site. Please try again later.</p>";
+      }
+    }
+
+    // 🧾 Generate PDF report using jsPDF
+    async function downloadPDF(url, seo, perf, rank, keyword) {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(20);
+      doc.text("SEO & Traffic Report", 20, 20);
+      doc.setFontSize(12);
+      doc.text(`Website: ${url}`, 20, 35);
+      doc.text(`SEO Score: ${seo}/100`, 20, 45);
+      doc.text(`Performance Score: ${perf}/100`, 20, 55);
+      doc.text(`Traffic Rank: ${rank}`, 20, 65);
+      doc.text(`Keyword: ${keyword}`, 20, 75);
+
+      doc.setFont("helvetica", "normal");
+      doc.text("Top SEO Recommendations:", 20, 90);
+      doc.text([
+        "- Improve page load time",
+        "- Add meta description and keywords",
+        "- Use mobile responsive design",
+        "- Use HTTPS and schema markup",
+        "- Add alt text to all images"
+      ], 25, 100);
+
+      doc.text("Generated with Free SEO Tool — powered by Google APIs.", 20, 150);
+      doc.save(`SEO_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+    }
+  </script>
+</body>
+</html>
