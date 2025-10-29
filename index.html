@@ -5,97 +5,80 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>🌐 Free SEO & Traffic Analyzer</title>
   <style>
-    body {
-      font-family: "Poppins", sans-serif;
-      background: #f0f4f9;
-      margin: 0;
-      padding: 40px;
-      color: #222;
-      text-align: center;
-    }
-    h1 { color: #0078d7; margin-bottom: 20px; }
-    input, button {
-      padding: 10px;
-      margin: 5px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      width: 300px;
-    }
-    button {
-      background: #0078d7;
-      color: #fff;
-      border: none;
-      cursor: pointer;
-    }
-    button:hover { background: #005bb5; }
-    .results {
-      margin-top: 30px;
-      background: #fff;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-      display: inline-block;
-      text-align: left;
-    }
-    .tips ul { text-align: left; }
+    body { font-family: Arial, sans-serif; background:#f8fafc; margin:0; padding:20px; color:#333; }
+    h1 { color:#2563eb; text-align:center; }
+    input, button { padding:10px; margin:8px 0; width:100%; max-width:500px; }
+    button { background:#2563eb; color:white; border:none; cursor:pointer; }
+    button:hover { background:#1d4ed8; }
+    #results { margin-top:20px; background:#fff; padding:15px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+    .error { color:#b91c1c; font-weight:bold; }
+    .success { color:#15803d; font-weight:bold; }
   </style>
 </head>
 <body>
   <h1>🌐 Free SEO & Traffic Analyzer</h1>
-  <label>Enter Website URL:</label><br/>
-  <input id="urlInput" placeholder="https://example.com" /><br/>
-  <label>Enter Keyword (optional):</label><br/>
-  <input id="keywordInput" placeholder="SEO keyword..." /><br/>
-  <button onclick="analyzeSEO()">Analyze Website</button>
 
-  <div class="results" id="results">
-    <h2>Results will appear here...</h2>
-  </div>
+  <label>Enter Website URL:</label><br>
+  <input id="urlInput" type="url" placeholder="https://example.com" required /><br>
+
+  <label>Enter Keyword (optional):</label><br>
+  <input id="keywordInput" type="text" placeholder="SEO keyword..." /><br>
+
+  <button id="analyzeBtn">🔍 Analyze Website</button>
+
+  <div id="results"></div>
 
   <script>
-    async function analyzeSEO() {
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const resultsDiv = document.getElementById('results');
+
+    analyzeBtn.addEventListener('click', async () => {
       const url = document.getElementById('urlInput').value.trim();
       const keyword = document.getElementById('keywordInput').value.trim();
-      const resultsDiv = document.getElementById('results');
       if (!url) {
-        alert('Please enter a valid website URL');
+        resultsDiv.innerHTML = '<p class="error">❌ Please enter a valid website URL.</p>';
         return;
       }
 
-      resultsDiv.innerHTML = '<h3>🔍 Analyzing, please wait...</h3>';
+      resultsDiv.innerHTML = '<p>⏳ Analyzing... please wait...</p>';
 
       try {
-        // Call Google PageSpeed Insights API
-        const api = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&category=performance&category=seo`;
+        const api = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=desktop`;
         const res = await fetch(api);
         const data = await res.json();
 
+        if (data.error) {
+          const msg = data.error.message || "Unknown error";
+          resultsDiv.innerHTML = `<p class="error">❌ Error analyzing this site.<br>Reason: ${msg}<br><br>💡 Try another public URL (e.g. https://wikipedia.org).</p>`;
+          return;
+        }
+
         const perfScore = Math.round(data.lighthouseResult.categories.performance.score * 100);
-        const seoScore = Math.round(data.lighthouseResult.categories.seo.score * 100);
-        const title = data.lighthouseResult.finalDisplayedUrl;
+        const seoScore = data.lighthouseResult.categories.seo ? 
+                         Math.round(data.lighthouseResult.categories.seo.score * 100) : 
+                         'N/A';
+        const domain = new URL(url).hostname;
 
         resultsDiv.innerHTML = `
-          <h2>Results for ${title}</h2>
-          <p>⚡ <strong>Performance Score:</strong> ${perfScore}/100</p>
-          <p>📈 <strong>SEO Score:</strong> ${seoScore}/100</p>
-          <p>🔑 <strong>Keyword:</strong> ${keyword || 'N/A'}</p>
-          <div class="tips">
-            <h3>🛠️ Quick SEO Tips</h3>
-            <ul>
-              <li>Improve page loading speed</li>
-              <li>Use mobile-friendly design</li>
-              <li>Optimize titles & meta tags</li>
-              <li>Add alt text to images</li>
-              <li>Use HTTPS for better trust</li>
-            </ul>
-          </div>
-          <p>✅ Powered by Google PageSpeed Insights API</p>
+          <h3>✅ Analysis Results for ${domain}</h3>
+          <p>⚡ Performance Score: <strong>${perfScore}/100</strong></p>
+          <p>📈 SEO Score: <strong>${seoScore}/100</strong></p>
+          <p>🎯 Keyword: <em>${keyword || '—'}</em></p>
+          <hr>
+          <h4>🛠️ Quick SEO Tips</h4>
+          <ul>
+            <li>Improve page loading speed</li>
+            <li>Use mobile-friendly design</li>
+            <li>Optimize titles & meta tags</li>
+            <li>Add alt text to images</li>
+            <li>Use HTTPS for better trust</li>
+          </ul>
+          <p class="success">✅ Powered by Google PageSpeed Insights</p>
         `;
-      } catch (error) {
-        console.error(error);
-        resultsDiv.innerHTML = `<p>❌ Failed to analyze. Please try again.</p>`;
+      } catch (err) {
+        resultsDiv.innerHTML = `<p class="error">❌ Network or API Error: ${err.message}<br>Check your internet or API limit.</p>`;
       }
-    }
+    });
   </script>
 </body>
 </html>
